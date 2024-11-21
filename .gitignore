@@ -1,0 +1,6 @@
+.ruff_cache
+Include
+Lib
+Scripts
+.env
+pyvenv.cfg
