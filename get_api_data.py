@@ -1,33 +1,33 @@
 # use poetry?
+# type check
 
 import os
+import json
 import datetime
 import requests
 import snowflake.connector
-
 
 class TFLData:
     """A class containing methods to get data from the TFL API
     and to write that data to a Snwoflake database"""
 
-    def get_api_data(self):
+    def get_api_data(self) -> tuple[list[dict], datetime.datetime]:
         """Fetches data from the API"""
 
-        modes = "tube, dlr"
+        modes: str = "tube, dlr"
         url: str = f"https://api.tfl.gov.uk/Line/Mode/{modes}/Disruption"
-
         headers: dict[str] = {"app_key": os.getenv("app_key")}
 
         try:
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=5)
 
             if response.status_code == 200:
                 data: list[dict] = response.json()
-                timestamp = datetime.datetime.now()
+                timestamp = datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')
                 return data, timestamp
 
             # log error if call unsuccessful
-            raise Exception("API call unsuccessful")
+            raise Exception(f"API call unsuccessful. Status code {response.status_code}.")
 
         except:
             raise Exception("Error when trying to make API call")
@@ -46,35 +46,47 @@ class TFLData:
                 database=os.getenv("db"),
                 schema=os.getenv("schema"),
             )
-
             return conn
         except:
             raise Exception("Failed to connect to the database")
 
-    def write_data(self, data, timestamp):
+    def write_data(self, data, timestamp) -> None:
         """Writes data to a Snowflake database"""
 
         conn = self.get_connection()
 
-        conn.cursor().execute(
-            """CREATE OR REPLACE TABLE
-            disruption(response variant, timestamp datetime)"""
-        )
-        
-        # looks like data is a list - probably need to parse to string?
-        
-        conn.cursor().execute(
-            f"""INSERT INTO disruption(response, timestamp)
-            VALUES({data}, {timestamp})"""
-        )
-        
+        # will want to append to this table - create an id field?
+        try:
+            conn.cursor().execute(
+                """CREATE OR REPLACE TABLE
+                disruption(
+                    response VARIANT, 
+                    time_received TIMESTAMP
+                );"""
+            )
+        except Exception as e:
+            print(e)
+            conn.close()
+            return
+
+        for msg in data:
+            msg_jsonstr = json.dumps(msg)
+            try:
+                conn.cursor().execute(
+                    f"""INSERT INTO disruption(response, time_received) 
+                    SELECT PARSE_JSON('{msg_jsonstr}'), '{timestamp}';"""
+                )
+            except Exception as e:
+                print(e)
+                conn.close()
+                return
+                
         conn.close()
 
         return
 
         # https://quickstarts.snowflake.com/guide/getting_started_with_python/index.html?index=..%2F..index#2
         # working with JSON in snowflake: https://docs.snowflake.com/en/user-guide/tutorials/json-basics-tutorial
-
 
 if __name__ == "__main__":
     tfl_data = TFLData()
