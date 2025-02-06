@@ -58,7 +58,7 @@ class TFLData:
         # will want to append to this table - create an id field?
         try:
             conn.cursor().execute(
-                """CREATE OR REPLACE TABLE
+                """CREATE TABLE IF NOT EXISTS
                 disruption(
                     response VARIANT, 
                     time_received TIMESTAMP
