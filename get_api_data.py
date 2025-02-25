@@ -1,5 +1,6 @@
 # use poetry?
 # type check
+# could look at using something SQLAlchemy if I end up writing to multiple tables
 
 import os
 import json
@@ -9,7 +10,7 @@ import snowflake.connector
 
 class TFLData:
     """A class containing methods to get data from the TFL API
-    and to write that data to a Snwoflake database"""
+    and to write that data to a Snowflake database"""
 
     def get_api_data(self) -> tuple[list[dict], datetime.datetime]:
         """Fetches data from the API"""
@@ -55,7 +56,6 @@ class TFLData:
 
         conn = self.get_connection()
 
-        # will want to append to this table - create an id field?
         try:
             conn.cursor().execute(
                 """CREATE TABLE IF NOT EXISTS
@@ -84,11 +84,3 @@ class TFLData:
         conn.close()
 
         return
-
-        # https://quickstarts.snowflake.com/guide/getting_started_with_python/index.html?index=..%2F..index#2
-        # working with JSON in snowflake: https://docs.snowflake.com/en/user-guide/tutorials/json-basics-tutorial
-
-if __name__ == "__main__":
-    tfl_data = TFLData()
-    api_data, time_received = tfl_data.get_api_data()
-    tfl_data.write_data(api_data, time_received)
