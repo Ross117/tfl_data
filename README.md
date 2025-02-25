@@ -1,2 +1,2 @@
 # tfl_data
-My work to visulalise data from Transport for London
+Python project to pull data from the Transport for London (TFL) API (https://api-portal.tfl.gov.uk/) and write it to a Snowflake database.
