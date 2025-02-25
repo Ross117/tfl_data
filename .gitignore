@@ -5,3 +5,4 @@ Scripts
 .env
 pyvenv.cfg
 launch.json
+__pycache__
