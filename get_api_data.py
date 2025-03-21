@@ -40,16 +40,16 @@ class TFLData:
 
         try:
             conn = snowflake.connector.connect(
-                user=os.getenv("db_user"),
-                password=os.getenv("db_password"),
-                account=os.getenv("db_account"),
-                warehouse=os.getenv("db_warehouse"),
+                user=os.getenv("user"),
+                password=os.getenv("password"),
+                account=os.getenv("account"),
+                warehouse=os.getenv("warehouse"),
                 database=os.getenv("db"),
                 schema=os.getenv("schema"),
             )
             return conn
-        except:
-            raise Exception("Failed to connect to the database")
+        except Exception as e:
+            raise Exception(f"Error when trying to make db connection: {e}")
 
     def write_data(self, data, timestamp) -> None:
         """Writes data to a Snowflake database"""
@@ -65,19 +65,19 @@ class TFLData:
                 );"""
             )
         except Exception as e:
-            print(e)
+            print(f'Error when trying to execute CREATE TABLE script: {e}')
             conn.close()
             return
 
         for msg in data:
-            msg_jsonstr = json.dumps(msg)
+            msg_json = json.dumps(msg)
             try:
                 conn.cursor().execute(
                     f"""INSERT INTO disruption(response, time_received) 
-                    SELECT PARSE_JSON('{msg_jsonstr}'), '{timestamp}';"""
+                    SELECT PARSE_JSON('{msg_json}'), '{timestamp}';"""
                 )
             except Exception as e:
-                print(e)
+                print(f'Error when trying to insert data into the db: {e}')
                 conn.close()
                 return
                 
