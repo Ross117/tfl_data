@@ -46,6 +46,7 @@ class TFLData:
                 warehouse=os.getenv("warehouse"),
                 database=os.getenv("db"),
                 schema=os.getenv("schema"),
+                authenticator='username_password_mfa'
             )
             return conn
         except Exception as e:
