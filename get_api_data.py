@@ -82,19 +82,6 @@ class TFLData:
 
         conn = self.get_connection()
 
-        try:
-            conn.cursor().execute(
-                """CREATE TABLE IF NOT EXISTS
-                disruption(
-                    response VARIANT, 
-                    time_received TIMESTAMP
-                );"""
-            )
-        except Exception as e:
-            print(f'Error when trying to execute CREATE TABLE script: {e}')
-            conn.close()
-            return
-
         for msg in data:
             msg_json = json.dumps(msg)
             try:
