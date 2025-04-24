@@ -1,5 +1,4 @@
 # use poetry?
-# type check
 # could look at using something SQLAlchemy if I end up writing to multiple tables
 
 import os
@@ -12,13 +11,35 @@ class TFLData:
     """A class containing methods to get data from the TFL API
     and to write that data to a Snowflake database"""
     
-    def log_data(self, timestamp: datetime.datetime, http_code: int, error_text: str | None, disruption_count: int | None) -> int | None:
-        """Logs metadata about the API call to the api_call_log table.
-        If data is successfully inserted, returns the id of the new record,
-        otherwise returns None."""
+    def get_latest_log_id(self, timestamp: datetime.datetime) -> int:
+        """Returns the api_call_log_id linked to the given timestamp.
+        If no record is returned or an error occurs when trying to
+        fetch the data, returns -1."""
         
         conn = self.get_connection()
-        # need to protect against SQL injection?
+        
+        api_call_log_id: int = -1
+        
+        try:
+            api_call_log_id = conn.cursor().execute(
+                f"""SELECT api_call_log_id
+                FROM api_call_log
+                WHERE timestamp = '{timestamp}'
+                """
+            ).fetchone()[0]  
+        except Exception as e:
+            conn.close()
+            print(f'Error when trying to get the api_call_log_id: {e}')
+        
+        return api_call_log_id
+        
+    
+    def log_data(self, timestamp: datetime.datetime, http_code: int, error_text: str | None, disruption_count: int | None) -> int:
+        """Logs metadata about the API call to the api_call_log table.
+        If data is successfully inserted, returns the id of the new record,
+        otherwise returns -1."""
+        
+        conn = self.get_connection()
         
         if not error_text:
             error_text = 'null'
@@ -26,35 +47,22 @@ class TFLData:
         if not disruption_count:
             disruption_count = 'null'
         
+        # need to protect against SQL injection?
         try:
             conn.cursor().execute(
                 f"""INSERT INTO api_call_log (timestamp, http_code, error_text, disruption_count)
                 VALUES('{timestamp}', {http_code}, {error_text}, {disruption_count})"""
             )
         except Exception as e:
-            conn.close()
-            # is it right to raise an exception here - wouldn't we still want the disruption data?
-            raise Exception(f'Error when trying to insert log data into the db: {e}')
+            print(f'Error when trying to insert log data into the db: {e}')
 
-        try:
-            api_call_log_id: int = conn.cursor().execute(
-                f"""SELECT api_call_log_id
-                FROM api_call_log
-                ORDER BY timestamp DESC
-                LIMIT 1"""
-            ).fetchone()[0]  
-        except Exception as e:
-            conn.close()
-            # is it right to raise an exception here - wouldn't we still want the disruption data?
-            raise Exception(f'Error when trying to get the api_call_log_id: {e}')
-        
         conn.close()
+
         
-        return api_call_log_id if api_call_log_id else None
-        
-    def get_api_data(self) -> tuple[list[dict], datetime.datetime]:
-        """Attempts to fetches disruption data from the API then
-        calls another method which logs metadata about the API call."""
+    def get_api_data(self) -> tuple[list[dict], datetime.datetime, int]:
+        """Attempts to fetch disruption data from the API then
+        calls two others methods which respectively log & then retrieve 
+        metadata about the API call."""
 
         modes: str = "tube, dlr"
         url: str = f"https://api.tfl.gov.uk/Line/Mode/{modes}/Disruption"
@@ -67,7 +75,8 @@ class TFLData:
 
             if response.status_code == 200:
                 data: list[dict] = response.json()
-                api_call_log_id = self.log_data(timestamp, response.status_code, None, len(data))
+                self.log_data(timestamp, response.status_code, None, len(data))
+                api_call_log_id: int = self.get_latest_log_id(timestamp)
                 return data, timestamp, api_call_log_id
 
             # log error if call unsuccessful
@@ -102,7 +111,8 @@ class TFLData:
         conn = self.get_connection()
 
         for msg in data:
-            msg_json = json.dumps(msg)
+            # need to escape apostrophes
+            msg_json = json.dumps(msg).replace("'", "\\'")
             try:
                 conn.cursor().execute(
                     f"""INSERT INTO disruption(response, time_received, api_call_log_id) 
