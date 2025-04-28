@@ -28,16 +28,15 @@ class TFLData:
                 """
             ).fetchone()[0]  
         except Exception as e:
-            conn.close()
             print(f'Error when trying to get the api_call_log_id: {e}')
+        
+        conn.close()
         
         return api_call_log_id
         
     
     def log_data(self, timestamp: datetime.datetime, http_code: int, error_text: str | None, disruption_count: int | None) -> int:
-        """Logs metadata about the API call to the api_call_log table.
-        If data is successfully inserted, returns the id of the new record,
-        otherwise returns -1."""
+        """Logs metadata about the API call to the api_call_log table."""
         
         conn = self.get_connection()
         
