@@ -44,7 +44,7 @@ class TFLData:
             error_text = 'null'
             
         if not disruption_count:
-            disruption_count = 'null'
+            disruption_count = 0
         
         # need to protect against SQL injection?
         try:
